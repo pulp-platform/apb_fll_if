@@ -255,11 +255,11 @@ module apb_fll_if
     end
 
 
-    assign fll1_wrn   = fll1_valid ? ~PWRITE    : 1'b0;
+    assign fll1_wrn   = fll1_valid ? ~PWRITE    : 1'b1;
     assign fll1_add   = fll1_valid ? PADDR[3:2] : '0;
     assign fll1_data  = fll1_valid ? PWDATA     : '0;
 
-    assign fll2_wrn   = fll2_valid ? ~PWRITE    : 1'b0;
+    assign fll2_wrn   = fll2_valid ? ~PWRITE    : 1'b1;
     assign fll2_add   = fll2_valid ? PADDR[3:2] : '0;
     assign fll2_data  = fll2_valid ? PWDATA     : '0;
 
