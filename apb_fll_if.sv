@@ -109,14 +109,14 @@ module apb_fll_if
             fll1_ack_sync   <= fll1_ack_sync0;
             fll2_ack_sync0  <= fll2_ack;
             fll2_ack_sync   <= fll2_ack_sync0;
-            fll3_ack_sync0  <= fll2_ack;
-            fll3_ack_sync   <= fll2_ack_sync0;
+            fll3_ack_sync0  <= fll3_ack;
+            fll3_ack_sync   <= fll3_ack_sync0;
             fll1_lock_sync0 <= fll1_lock;
             fll1_lock_sync  <= fll1_lock_sync0;
             fll2_lock_sync0 <= fll2_lock;
             fll2_lock_sync  <= fll2_lock_sync0;
-            fll3_lock_sync0 <= fll2_lock;
-            fll3_lock_sync  <= fll2_lock_sync0;
+            fll3_lock_sync0 <= fll3_lock;
+            fll3_lock_sync  <= fll3_lock_sync0;
             state           <= state_next;
         end
     end
