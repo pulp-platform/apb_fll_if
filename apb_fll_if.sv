@@ -42,13 +42,22 @@ module apb_fll_if
     output logic               [31:0] fll2_data,
     input  logic                      fll2_ack,
     input  logic               [31:0] fll2_r_data,
-    input  logic                      fll2_lock
+    input  logic                      fll2_lock,
+    output logic                      fll3_req,
+    output logic                      fll3_wrn,
+    output logic                [1:0] fll3_add,
+    output logic               [31:0] fll3_data,
+    input  logic                      fll3_ack,
+    input  logic               [31:0] fll3_r_data,
+    input  logic                      fll3_lock
 );
 
     logic        fll1_rd_access;
     logic        fll1_wr_access;
     logic        fll2_rd_access;
     logic        fll2_wr_access;
+    logic        fll3_rd_access;
+    logic        fll3_wr_access;
 
     logic        read_ready;
     logic        write_ready;
@@ -60,15 +69,21 @@ module apb_fll_if
     logic        fll1_ack_sync;
     logic        fll2_ack_sync0;
     logic        fll2_ack_sync;
+    logic        fll3_ack_sync0;
+    logic        fll3_ack_sync;
+
     logic        fll1_lock_sync0;
     logic        fll1_lock_sync;
     logic        fll2_lock_sync0;
     logic        fll2_lock_sync;
+    logic        fll3_lock_sync0;
+    logic        fll3_lock_sync;
 
     logic        fll1_valid;
     logic        fll2_valid;
+    logic        fll3_valid;
 
-    enum logic [2:0] { IDLE, CVP1_PHASE1, CVP1_PHASE2, CVP2_PHASE1, CVP2_PHASE2} state,state_next;
+    enum logic [2:0] { IDLE, CVP1_PHASE1, CVP1_PHASE2, CVP2_PHASE1, CVP2_PHASE2, CVP3_PHASE1, CVP3_PHASE2} state,state_next;
 
     always_ff @(posedge HCLK, negedge HRESETn)
     begin
@@ -78,10 +93,14 @@ module apb_fll_if
             fll1_ack_sync   <= 1'b0;
             fll2_ack_sync0  <= 1'b0;
             fll2_ack_sync   <= 1'b0;
+            fll3_ack_sync0  <= 1'b0;
+            fll3_ack_sync   <= 1'b0;
             fll1_lock_sync0 <= 1'b0;
             fll1_lock_sync  <= 1'b0;
             fll2_lock_sync0 <= 1'b0;
             fll2_lock_sync  <= 1'b0;
+            fll3_lock_sync0 <= 1'b0;
+            fll3_lock_sync  <= 1'b0;
             state           <= IDLE;
         end
         else
@@ -90,10 +109,14 @@ module apb_fll_if
             fll1_ack_sync   <= fll1_ack_sync0;
             fll2_ack_sync0  <= fll2_ack;
             fll2_ack_sync   <= fll2_ack_sync0;
+            fll3_ack_sync0  <= fll2_ack;
+            fll3_ack_sync   <= fll2_ack_sync0;
             fll1_lock_sync0 <= fll1_lock;
             fll1_lock_sync  <= fll1_lock_sync0;
             fll2_lock_sync0 <= fll2_lock;
             fll2_lock_sync  <= fll2_lock_sync0;
+            fll3_lock_sync0 <= fll2_lock;
+            fll3_lock_sync  <= fll2_lock_sync0;
             state           <= state_next;
         end
     end
@@ -119,6 +142,11 @@ module apb_fll_if
             begin
                 fll1_valid = 1'b1;
                 state_next = CVP1_PHASE1;
+            end
+            else if (fll3_rd_access || fll3_wr_access)
+            begin
+                fll3_valid = 1'b1;
+                state_next = CVP3_PHASE1;
             end
         end
 
@@ -171,6 +199,31 @@ module apb_fll_if
             else
                 state_next = CVP2_PHASE2;
         end
+
+        CVP3_PHASE1:
+        begin
+            if (fll3_ack_sync)
+            begin
+                fll3_req   = 1'b0;
+                fll3_valid = 1'b0;
+                state_next = CVP3_PHASE2;
+                rvalid     = 1'b1;
+            end
+            else
+            begin
+                fll3_req   = 1'b1;
+                fll3_valid = 1'b1;
+                state_next = CVP3_PHASE1;
+            end
+        end
+
+        CVP3_PHASE2:
+        begin
+            if (!fll3_ack_sync)
+                state_next = IDLE;
+            else
+                state_next = CVP3_PHASE2;
+        end
         endcase
     end
 
@@ -180,6 +233,8 @@ module apb_fll_if
       // default assignments
       fll1_wr_access = 1'b0;
       fll2_wr_access = 1'b0;
+      fll3_wr_access = 1'b0;
+
       write_ready    = 1'b0;
 
       if (PSEL && PENABLE && PWRITE) begin
@@ -202,6 +257,15 @@ module apb_fll_if
             write_ready    = rvalid;
           end
 
+          // Direct access to FLL3
+          4'b1000,
+          4'b1001,
+          4'b1010,
+          4'b1011: begin
+            fll3_wr_access = 1'b1;
+            write_ready    = rvalid;
+          end
+
           // There are no additional registers to write
           default: begin
             write_ready = 1'b1;
@@ -216,6 +280,7 @@ module apb_fll_if
       // default assignments
       fll1_rd_access = 1'b0;
       fll2_rd_access = 1'b0;
+      fll3_rd_access = 1'b0;
       read_ready     = 1'b0;
       read_data      = '0;
 
@@ -241,8 +306,18 @@ module apb_fll_if
             read_ready     = rvalid;
           end
 
-          4'b1000: begin
-            read_data[1:0] = {fll2_lock_sync, fll1_lock_sync};
+          // Direct FLL access to FLL3
+          4'b1000,
+          4'b1001,
+          4'b1010,
+          4'b1011: begin
+            fll3_rd_access = 1'b1;
+            read_data      = fll3_r_data;
+            read_ready     = rvalid;
+          end
+
+          4'b1111: begin
+            read_data[2:0] = {fll3_lock_sync, fll2_lock_sync, fll1_lock_sync};
             read_ready     = 1'b1;
           end
 
@@ -262,6 +337,10 @@ module apb_fll_if
     assign fll2_wrn   = fll2_valid ? ~PWRITE    : 1'b1;
     assign fll2_add   = fll2_valid ? PADDR[3:2] : '0;
     assign fll2_data  = fll2_valid ? PWDATA     : '0;
+
+    assign fll3_wrn   = fll3_valid ? ~PWRITE    : 1'b0;
+    assign fll3_add   = fll3_valid ? PADDR[3:2] : '0;
+    assign fll3_data  = fll3_valid ? PWDATA     : '0;
 
     assign PREADY     = PWRITE ? write_ready : read_ready;
     assign PRDATA     = read_data;
