@@ -127,8 +127,10 @@ module apb_fll_if
         rvalid        = 1'b0;
         fll1_req      = 1'b0;
         fll2_req      = 1'b0;
+        fll3_req      = 1'b0;
         fll1_valid    = 1'b0;
         fll2_valid    = 1'b0;
+        fll3_valid    = 1'b0;
 
         case(state)
         IDLE:
