@@ -335,7 +335,7 @@ module apb_fll_if
     assign fll2_add   = fll2_valid ? PADDR[3:2] : '0;
     assign fll2_data  = fll2_valid ? PWDATA     : '0;
 
-    assign fll3_wrn   = fll3_valid ? ~PWRITE    : 1'b0;
+    assign fll3_wrn   = fll3_valid ? ~PWRITE    : 1'b1;
     assign fll3_add   = fll3_valid ? PADDR[3:2] : '0;
     assign fll3_data  = fll3_valid ? PWDATA     : '0;
 
