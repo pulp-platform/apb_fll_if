@@ -1,4 +1,4 @@
 apb_fll_if:
   files: [
-    apb_fll_if.sv,
+    src/apb_fll_if.sv,
   ]

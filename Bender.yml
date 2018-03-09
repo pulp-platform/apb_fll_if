@@ -1,0 +1,5 @@
+package:
+  name: apb_fll_if
+
+sources:
+  - src/apb_fll_if.sv
