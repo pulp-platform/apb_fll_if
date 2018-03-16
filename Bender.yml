@@ -1,5 +1,12 @@
 package:
   name: apb_fll_if
 
+dependencies:
+  apb: { git: "git@iis-git.ee.ethz.ch:sasa/apb.git", rev: master }
+
 sources:
+  - src/fll_intf.sv
   - src/apb_fll_if.sv
+  - target: test
+    files:
+      - test/apb_fll_tb.sv
