@@ -2,4 +2,5 @@ apb_fll_if:
   files: [
     src/fll_intf.sv,
     src/apb_fll_if.sv,
+    src/apb_to_fll.sv,
   ]
