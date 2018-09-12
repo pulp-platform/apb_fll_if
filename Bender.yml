@@ -2,7 +2,7 @@ package:
   name: apb_fll_if
 
 dependencies:
-  apb: { git: "git@iis-git.ee.ethz.ch:sasa/apb.git", rev: master }
+  apb: { git: "https://github.com/pulp-platform/apb.git", version: 0.1.0 }
 
 sources:
   - src/fll_intf.sv
