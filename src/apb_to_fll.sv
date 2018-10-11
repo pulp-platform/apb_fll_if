@@ -66,7 +66,7 @@ module apb_to_fll #(
             IDLE: begin
                 // select the corresponding fll
                 for (int unsigned i = 0; i < NR_FLLS; i++) begin
-                    if (fll_rd_access[i] || fll_wr_access) begin
+                    if (fll_rd_access[i] || fll_wr_access[i]) begin
                         fll_select_d = i;
                         state_d = CVP_PHASE1;
                         break;
