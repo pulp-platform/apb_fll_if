@@ -112,6 +112,8 @@ module apb_fll_if
             r_fll3_lock_sync  <= 1'b0;
             r_bbgen_lock_sync0 <= 1'b0;
             r_bbgen_lock_sync  <= 1'b0;
+            r_bbgen_ack_sync0 <= 1'b0;
+            r_bbgen_ack_sync <= 1'b0;
             state           <= IDLE;
         end
         else
@@ -130,6 +132,8 @@ module apb_fll_if
             r_fll3_lock_sync  <= r_fll3_lock_sync0;
             r_bbgen_lock_sync0 <= bbgen_lock_i;
             r_bbgen_lock_sync  <= r_bbgen_lock_sync0;
+            r_bbgen_ack_sync0 <= bbgen_ack_i;
+            r_bbgen_ack_sync <= r_bbgen_ack_sync0;
             state           <= state_next;
         end
     end
