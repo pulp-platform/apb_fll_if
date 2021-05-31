@@ -14,7 +14,7 @@ module apb_to_fll #(
 )(
     input  logic  clk_i,
     input  logic  rst_ni,
-    APB_BUS.in    apb,
+    APB.Slave     apb,
 
     FLL_BUS.out   fll_intf [NR_FLLS-1:0]
 

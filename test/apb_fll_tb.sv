@@ -16,7 +16,7 @@ module apb_fll_tb #(
 );
 
     logic clk, rst_n;
-    APB_BUS apb();
+    APB #(.ADDR_WIDTH(32), .DATA_WIDTH(32)) apb();
     FLL_BUS fll_intf[2:0]();
 
     apb_fll_if #(
