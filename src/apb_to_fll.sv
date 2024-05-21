@@ -135,7 +135,7 @@ module apb_to_fll #(
     `ifndef SYNTHESIS
     `ifndef VERILATOR
     initial begin
-        assert($clog2(APB_ADDR_WIDTH-2) < NR_FLLS + 1) else $error("[APB FLL IF] You have more FLLs than bits to address");
+        assert(APB_ADDR_WIDTH-4 >= $clog2(NR_FLLS+1)) else $error("[APB FLL IF] You have more FLLs than bits to address");
     end
     `endif
     `endif
