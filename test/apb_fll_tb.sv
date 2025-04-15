@@ -40,7 +40,4 @@ module apb_fll_tb #(
             #10ns clk = ~clk;
     end
 
-    program testbench();
-
-    endprogram
 endmodule
