@@ -11,22 +11,39 @@
 // Author: Florian Zaruba <zaruabf@iis.ee.ethz.ch>
 /// Testbench for APB FLL Interface
 module apb_fll_tb #(
-    parameter int unsigned APB_ADDR_WIDTH = 12,
-    parameter int unsigned NR_FLLS        = 3
+    parameter int unsigned APBAddrWidth = 12,
+    parameter int unsigned NumFLLs        = 3
 );
 
-    logic clk, rst_n;
-    APB #(.ADDR_WIDTH(32), .DATA_WIDTH(32)) apb();
-    FLL_BUS fll_intf[2:0]();
+    `include "apb/typedef.svh"
+    `include "apb/assign.svh"
 
-    apb_fll_if #(
-        .APB_ADDR_WIDTH ( APB_ADDR_WIDTH ),
-        .NR_FLLS        ( 3              )
-    ) i_apb_fll_if (
-        .clk_i    ( clk_i    ),
-        .rst_ni   ( rst_ni   ),
-        .apb      ( apb      ),
-        .fll_intf ( fll_intf )
+    `APB_TYPEDEF_ALL(apb, logic[APBAddrWidth-1:0], logic [31:0], logic [7:0])
+    APB #(.ADDR_WIDTH(32), .DATA_WIDTH(32)) apb();
+
+    apb_req_t [NumFLLs-1:0] apb_req;
+    apb_resp_t [NumFLLs-1:0] apb_rsp;
+
+    `APB_ASSIGN_TO_REQ(apb_req, apb)
+    `APB_ASSIGN_FROM_RESP(apb, apb_rsp)
+
+    apb_fll_pkg::fll_req_t [NumFLLs-1:0] fll_req;
+    apb_fll_pkg::fll_rsp_t [NumFLLs-1:0] fll_rsp;
+
+    logic clk, rst_n;
+
+    apb_to_fll #(
+        .APBAddrWidth(APBAddrWidth),
+        .NumFLLs     (NumFLLs),
+        .apb_req_t   (apb_req_t),
+        .apb_resp_t  (apb_resp_t)
+    ) i_apb_to_fll (
+        .clk_i    (clk),
+        .rst_ni   (rst_n),
+        .apb_req_i(apb_req),
+        .apb_rsp_o(apb_rsp),
+        .fll_req_o(fll_req),
+        .fll_rsp_i(fll_rsp)
     );
 
     initial begin
