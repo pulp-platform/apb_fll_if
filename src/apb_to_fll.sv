@@ -31,16 +31,17 @@ module apb_to_fll #(
 
     logic [NumFLLs-1:0] fll_ack_q2, fll_ack_q;
     logic [NumFLLs-1:0] fll_lock_q2, fll_lock_q;
+    logic [NumFLLs-1:0] fll_req;
 
     logic [1:0] fll_req_sel;
-    logic [$clog2(NumFLLs)-1:0] fll_sel;
+    logic [cf_math_pkg::idx_width(NumFLLs)-1:0] fll_sel;
     logic read_lock;
 
     // [1:0] is the byte offset
     // [3:2] is the FLL reg address
     // The MSBs is to select the FLL
     assign fll_req_sel = apb_req_i.paddr[3:2];
-    assign fll_sel = apb_req_i.paddr[4+:$clog2(NumFLLs)];
+    assign fll_sel = apb_req_i.paddr[4+:cf_math_pkg::idx_width(NumFLLs)];
     // To read the lock signal, we can read the pseudo FLL at '1
     assign read_lock = (fll_sel == '1);
 
@@ -49,7 +50,7 @@ module apb_to_fll #(
     always_comb begin
         state_d     = state_q;
         fll_ready   = 1'b0;
-        fll_req_o   = '0;
+        fll_req     = '0;
 
         case (state_q)
             IDLE: begin
@@ -63,7 +64,7 @@ module apb_to_fll #(
                     fll_ready = 1'b1;
                     state_d = CVP_PHASE2;
                 end else begin
-                    fll_req_o[fll_sel].req = 1'b1;
+                    fll_req[fll_sel] = 1'b1;
                 end
             end
 
@@ -75,7 +76,8 @@ module apb_to_fll #(
     end
 
     for (genvar i = 0; i < NumFLLs; i++) begin
-        assign fll_req_o[i].wrn   = fll_req_o[i].req ? ~apb.pwrite : 1'b1;
+        assign fll_req_o[i].req   = fll_req[i];
+        assign fll_req_o[i].wrn   = fll_req_o[i].req ? ~apb_req_i.pwrite : 1'b1;
         assign fll_req_o[i].addr  = fll_req_o[i].req ? fll_req_sel : '0;
         assign fll_req_o[i].wdata = fll_req_o[i].req ? apb_req_i.pwdata  : '0;
     end
