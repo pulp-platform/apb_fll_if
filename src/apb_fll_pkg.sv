@@ -6,6 +6,11 @@
 
 package apb_fll_pkg;
 
+  localparam int unsigned STATUS_BASE_ADDR = 32'h0;
+  localparam int unsigned CONFIG1_BASE_ADDR = 32'h4;
+  localparam int unsigned CONFIG2_BASE_ADDR = 32'h8;
+  localparam int unsigned INTEGRATOR_BASE_ADDR = 32'hC;
+
   typedef struct packed {
     logic        req;    // request
     logic        wrn;    // write not read

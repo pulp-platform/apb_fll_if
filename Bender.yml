@@ -13,4 +13,5 @@ sources:
 
   - target: apb_fll_test
     files:
+      - test/fll_model.sv
       - test/apb_fll_tb.sv
