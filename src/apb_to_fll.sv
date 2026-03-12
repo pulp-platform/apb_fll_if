@@ -69,7 +69,7 @@ module apb_to_fll #(
         endcase
     end
 
-    for (genvar i = 0; i < NumFLLs; i++) begin
+    for (genvar i = 0; i < NumFLLs; i++) begin : gen_fll_req
         assign fll_req_o[i].req   = fll_req[i];
         assign fll_req_o[i].wrn   = fll_req_o[i].req ? ~apb_req_i.pwrite : 1'b1;
         assign fll_req_o[i].addr  = fll_req_o[i].req ? fll_req_sel : '0;
@@ -81,7 +81,7 @@ module apb_to_fll #(
     assign apb_rsp_o.prdata  = read_lock ? fll_lock_q2 : fll_rsp_i[fll_sel].rdata;
     assign apb_rsp_o.pslverr = 1'b0;
 
-    for (genvar i = 0; i < NumFLLs; i++) begin
+    for (genvar i = 0; i < NumFLLs; i++) begin : gen_fll_rsp
         `FF(fll_lock_q[i], fll_rsp_i[i].lock, '0)
         `FF(fll_lock_q2[i], fll_lock_q[i], '0)
         `FF(fll_ack_q[i], fll_rsp_i[i].ack, '0)
@@ -92,6 +92,7 @@ module apb_to_fll #(
 
     // Assert that the APB address width is appropriate for the number of FLLs
     // `NumFLL+1` because we have a pseudo FLL at address '1 to read the lock signal
-    `ASSERT_INIT(APBAddrWidthCheck, APBAddrWidth-4 >= $clog2(NumFLLs+1), "[APB FLL IF] You have more FLLs than bits to address")
+    `ASSERT_INIT(APBAddrWidthCheck, APBAddrWidth-4 >= $clog2(NumFLLs+1),
+        "[APB FLL IF] You have more FLLs than bits to address")
 
 endmodule
