@@ -2,5 +2,9 @@
 !.git*
 !.editorconfig
 build
-/Bender.local
-/Bender.lock
+work
+transcript
+modelsim.ini
+vsim.wlf
+work-vlt
+sw/build

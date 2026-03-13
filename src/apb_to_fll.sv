@@ -1,164 +1,98 @@
-// Copyright 2018 ETH Zurich and University of Bologna.
-// Copyright and related rights are licensed under the Solderpad Hardware
-// License, Version 0.51 (the "License"); you may not use this file except in
-// compliance with the License.  You may obtain a copy of the License at
-// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
-// or agreed to in writing, software, hardware and materials distributed under
-// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Copyright 2025 ETH Zurich and University of Bologna.
+// Solderpad Hardware License, Version 0.51, see LICENSE for details.
+// SPDX-License-Identifier: SHL-0.51
 
 module apb_to_fll #(
-    parameter int APB_ADDR_WIDTH   = 12,
-    parameter int unsigned NR_FLLS = 1
-)(
+    parameter int APBAddrWidth   = 12,
+    parameter int unsigned NumFLLs = 1,
+    parameter type apb_req_t = logic,
+    parameter type apb_resp_t = logic
+) (
     input  logic  clk_i,
     input  logic  rst_ni,
-    APB.Slave     apb,
-
-    FLL_BUS.out   fll_intf [NR_FLLS-1:0]
-
+    // APB interface
+    input  apb_req_t apb_req_i,
+    output apb_resp_t apb_rsp_o,
+    // FLL interface
+    output apb_fll_pkg::fll_req_t [NumFLLs-1:0] fll_req_o,
+    input  apb_fll_pkg::fll_rsp_t [NumFLLs-1:0] fll_rsp_i
 );
 
-    logic [NR_FLLS-1:0] fll_rd_access;
-    logic [NR_FLLS-1:0] fll_wr_access;
+    `include "common_cells/registers.svh"
+    `include "common_cells/assertions.svh"
 
-    logic        read_ready;
-    logic        write_ready;
-    logic [31:0] read_data;
+    logic fll_ready;
 
-    logic        rvalid;
+    logic [NumFLLs-1:0] fll_ack_q2, fll_ack_q;
+    logic [NumFLLs-1:0] fll_lock_q2, fll_lock_q;
+    logic [NumFLLs-1:0] fll_req;
 
-    logic [NR_FLLS-1:0] fll_ack_sync0;
-    logic [NR_FLLS-1:0] fll_ack_sync;
+    logic [1:0] fll_req_sel;
+    logic [cf_math_pkg::idx_width(NumFLLs)-1:0] fll_sel;
+    logic read_lock;
 
-    logic [NR_FLLS-1:0] fll_lock_sync0;
-    logic [NR_FLLS-1:0] fll_lock_sync;
-
-    logic [NR_FLLS-1:0] fll_valid;
-
-    logic [NR_FLLS-1:0] fll_intf_req;
-    logic [NR_FLLS-1:0] fll_intf_ack;
-    logic [NR_FLLS-1:0] fll_intf_lock;
-    logic [NR_FLLS-1:0][31:0] fll_intf_rdata;
-
-    // unpack interface
-    for (genvar i = 0; i < NR_FLLS; i++) begin
-        assign fll_intf_ack[i]   = fll_intf[i].ack;
-        assign fll_intf_lock[i]  = fll_intf[i].lock;
-        assign fll_intf[i].req   = fll_intf_req[i];
-        assign fll_intf_rdata[i] = fll_intf[i].rdata;
-    end
+    // [1:0] is the byte offset
+    // [3:2] is the FLL reg address
+    // The MSBs is to select the FLL
+    assign fll_req_sel = apb_req_i.paddr[3:2];
+    assign fll_sel = apb_req_i.paddr[4+:cf_math_pkg::idx_width(NumFLLs)];
+    // To read the lock signal, we can read the pseudo FLL at '1
+    assign read_lock = (fll_sel == '1);
 
     enum logic [2:0] { IDLE, CVP_PHASE1, CVP_PHASE2 } state_q, state_d;
 
-    logic [$clog2(NR_FLLS)-1:0] fll_select_d, fll_select_q;
-
     always_comb begin
-        state_d      = state_q;
-        fll_select_d = fll_select_q;
-        rvalid       = 1'b0;
-        fll_valid    = '0;
-
-        fll_intf_req = '0;
+        state_d     = state_q;
+        fll_ready   = 1'b0;
+        fll_req     = '0;
 
         case (state_q)
             IDLE: begin
-                // select the corresponding fll
-                for (int unsigned i = 0; i < NR_FLLS; i++) begin
-                    if (fll_rd_access[i] || fll_wr_access[i]) begin
-                        fll_select_d = i;
-                        state_d = CVP_PHASE1;
-                        break;
-                    end
+                if (apb_req_i.psel && apb_req_i.penable && !read_lock) begin
+                    state_d = CVP_PHASE1;
                 end
             end
 
             CVP_PHASE1: begin
-                if (fll_ack_sync[fll_select_q]) begin
-                    rvalid  = 1'b1;
+                if (fll_ack_q2[fll_sel]) begin
+                    fll_ready = 1'b1;
                     state_d = CVP_PHASE2;
                 end else begin
-                    fll_intf_req[fll_select_q] = 1'b1;
-                    fll_valid[fll_select_q]    = 1'b1;
+                    fll_req[fll_sel] = 1'b1;
                 end
             end
 
             CVP_PHASE2: begin
-                if (!fll_ack_sync[fll_select_q])
+                if (!fll_ack_q2[fll_sel])
                     state_d = IDLE;
             end
         endcase
     end
 
-    always_comb begin
-        // default assignments
-        fll_rd_access = '0;
-        read_ready    = 1'b0;
-        read_data     = '0;
-
-        fll_wr_access = '0;
-        write_ready   = 1'b0;
-
-        // read logic
-        if (apb.psel && apb.penable && (~apb.pwrite)) begin
-            // lock signal
-            if (apb.paddr[APB_ADDR_WIDTH-1:2] == '1) begin
-                read_data  = fll_intf_lock;
-                read_ready = 1'b1;
-            // FLL registers
-            end else begin
-                fll_rd_access[apb.paddr[4+$clog2(NR_FLLS):4]] = 1'b1;
-                read_data  = fll_intf_rdata[apb.paddr[4+$clog2(NR_FLLS):4]];
-                read_ready = rvalid;
-            end
-        end
-
-        // write logic
-        if (apb.psel && apb.penable && apb.pwrite) begin
-            fll_wr_access[apb.paddr[4+$clog2(NR_FLLS):4]] = 1'b1;
-            write_ready                               = rvalid;
-        end
+    for (genvar i = 0; i < NumFLLs; i++) begin : gen_fll_req
+        assign fll_req_o[i].req   = fll_req[i];
+        assign fll_req_o[i].wrn   = fll_req_o[i].req ? ~apb_req_i.pwrite : 1'b1;
+        assign fll_req_o[i].addr  = fll_req_o[i].req ? fll_req_sel : '0;
+        assign fll_req_o[i].wdata = fll_req_o[i].req ? apb_req_i.pwdata  : '0;
     end
 
-    for (genvar i = 0; i < NR_FLLS; i++) begin
-        assign fll_intf[i].wrn   = fll_valid[i] ? ~apb.pwrite    : 1'b1;
-        assign fll_intf[i].addr  = fll_valid[i] ? apb.paddr[3:2] : '0;
-        assign fll_intf[i].wdata = fll_valid[i] ? apb.pwdata     : '0;
+    // APB response logic
+    assign apb_rsp_o.pready  = read_lock ? apb_req_i.psel && apb_req_i.penable : fll_ready;
+    assign apb_rsp_o.prdata  = read_lock ? fll_lock_q2 : fll_rsp_i[fll_sel].rdata;
+    assign apb_rsp_o.pslverr = 1'b0;
+
+    for (genvar i = 0; i < NumFLLs; i++) begin : gen_fll_rsp
+        `FF(fll_lock_q[i], fll_rsp_i[i].lock, '0)
+        `FF(fll_lock_q2[i], fll_lock_q[i], '0)
+        `FF(fll_ack_q[i], fll_rsp_i[i].ack, '0)
+        `FF(fll_ack_q2[i], fll_ack_q[i], '0)
     end
 
-    // additional APB signaling
-    assign apb.pready  = apb.pwrite ? write_ready : read_ready;
-    assign apb.prdata  = read_data;
-    assign apb.pslverr = 1'b0;
+    `FF(state_q, state_d, IDLE)
 
-    `ifndef SYNTHESIS
-    `ifndef VERILATOR
-    initial begin
-        assert(APB_ADDR_WIDTH-4 >= $clog2(NR_FLLS+1)) else $error("[APB FLL IF] You have more FLLs than bits to address");
-    end
-    `endif
-    `endif
+    // Assert that the APB address width is appropriate for the number of FLLs
+    // `NumFLL+1` because we have a pseudo FLL at address '1 to read the lock signal
+    `ASSERT_INIT(APBAddrWidthCheck, APBAddrWidth-4 >= $clog2(NumFLLs+1),
+        "[APB FLL IF] You have more FLLs than bits to address")
 
-    always_ff @(posedge clk_i, negedge rst_ni) begin
-        if (!rst_ni) begin
-            fll_ack_sync0  <= '0;
-            fll_ack_sync   <= '0;
-
-            fll_lock_sync0 <= '0;
-            fll_lock_sync  <= '0;
-
-            state_q        <= IDLE;
-            fll_select_q   <= '0;
-        end else begin
-            fll_ack_sync0  <= fll_intf_ack;
-            fll_lock_sync0 <= fll_intf_lock;
-
-            fll_lock_sync  <= fll_lock_sync0;
-            fll_ack_sync   <= fll_ack_sync0;
-
-            state_q        <= state_d;
-            fll_select_q   <= fll_select_d;
-        end
-    end
 endmodule

@@ -1,0 +1,13 @@
+# Copyright 2025 ETH Zurich and University of Bologna.
+# Solderpad Hardware License, Version 0.51, see LICENSE for details.
+# SPDX-License-Identifier: SHL-0.51
+
+[project]
+name = "apb-fll-if"
+version = "0.1.0"
+description = "Control interface for FLL"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "peakrdl>=1.5.0",
+]

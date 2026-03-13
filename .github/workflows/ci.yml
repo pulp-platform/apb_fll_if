@@ -1,0 +1,71 @@
+# Copyright 2026 ETH Zurich and University of Bologna.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+# Author: Tim Fischer <fischeti@iis.ee.ethz.ch>
+
+name: ci
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  sw:
+    name: Build SW driver
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - uses: pulp-platform/pulp-actions/riscv-gcc-install@v2.4.4
+        with:
+          distro: ubuntu-22.04
+          nightly-date: 2023.03.14
+          target: riscv32-elf
+      - name: Build SW driver
+        run: uv run make all
+      - name: Check generated header is up to date
+        run: git diff --exit-code sw/include/fll_regs.h
+
+  verilator-sim:
+    name: Run Verilator simulation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bender install
+        uses: pulp-platform/pulp-actions/bender-install@v2.4.4
+        with:
+          version: 0.31.0
+      - name: Install Verilator
+        uses: veryl-lang/setup-verilator@v1
+      - name: Run Verilator simulation
+        run: make vlt-run
+
+  check-verilog:
+    name: Check Verilog sources
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Run Verible
+      uses: chipsalliance/verible-linter-action@main
+      with:
+        paths: src
+        extra_args: "--waiver_files .github/verible.waiver"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        fail_on_error: true
+        reviewdog_reporter: github-check
+
+  check-license:
+    name: Check license
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: pulp-platform/pulp-actions/lint-license@v2.4.4
+      with:
+        license: |
+          Copyright (\d{4}(-\d{4})?\s)?(ETH Zurich and University of Bologna|lowRISC contributors).
+          (Solderpad Hardware License, Version 0.51|Licensed under the Apache License, Version 2.0), see LICENSE for details.
+          SPDX-License-Identifier: (SHL-0.51|Apache-2.0)
